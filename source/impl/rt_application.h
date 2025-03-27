@@ -17,18 +17,15 @@ namespace Example{
     private: 
       comm::datalayer::IDataLayerFactory3* m_datalayer;
       comm::datalayer::IClient3* m_client; 
-      std::shared_ptr<comm::datalayer::IMemoryUser> m_inputs; 
-      std::shared_ptr<comm::datalayer::IMemoryUser> m_outputs;  
-      uint32_t m_inputRev; 
-      uint32_t m_outputRev; 
-      //int m_ticks = 0; 
-      std::map<std::string,uint32_t> m_inMap; 
-      std::map<std::string,uint32_t> m_outMap; 
+      std::shared_ptr<comm::datalayer::IMemoryUser> m_inputs_ECAT; 
+      std::shared_ptr<comm::datalayer::IMemoryUser> m_outputs_ECAT;  
+      uint32_t m_inputRev_ECAT; 
+      uint32_t m_outputRev_ECAT; 
+      std::map<std::string,uint32_t> m_inMap_ECAT; 
+      std::map<std::string,uint32_t> m_outMap_ECAT; 
       void createClient(); 
-      void openMemory(); 
-      void closeMemory(); 
+      void openMemory(std::shared_ptr<comm::datalayer::IMemoryUser> mem, std::map<std::string,uint32_t>* mem_Map, uint32_t* m_Rev, std::string m_DatalayerPath);
+      void closeMemory(std::shared_ptr<comm::datalayer::IMemoryUser> mem); 
       void destroyClient(); 
-
-      
   };
 }

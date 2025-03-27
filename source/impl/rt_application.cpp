@@ -13,33 +13,33 @@ common::scheduler::SchedEventResponse RTApplication::execute(const common::sched
   {
     u_int8_t* inData; 
     u_int8_t* outData; 
-    auto result = m_inputs->beginAccess(inData, m_inputRev); 
+    auto result = m_inputs_ECAT->beginAccess(inData, m_inputRev_ECAT); 
     if(result == DL_OK)
     {
-      EtherCATUpdate::AT(inData, m_inMap);
+      RTUpdate::AT(inData, m_inMap_ECAT);
     } 
     else
     {
       LOG_WARNING("Failed to open the input data!")
     } 
-    m_inputs->endAccess(); 
-    result = m_outputs->beginAccess(outData, m_outputRev);
+    m_inputs_ECAT->endAccess(); 
+    result = m_outputs_ECAT->beginAccess(outData, m_outputRev_ECAT);
     if(result == comm::datalayer::DlResult::DL_OK)
       { 
-        EtherCATUpdate::MDT(outData, m_outMap);
+        RTUpdate::MDT(outData, m_outMap_ECAT);
       }
     else
     {
       LOG_WARNING("Failed to open the output data!")
     }  
-    m_outputs->endAccess(); 
+    m_outputs_ECAT->endAccess(); 
     return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_OKAY;
   }
 
   case common::scheduler::SchedEventType::SCHED_EVENT_SWITCH_TO_SERVICE:
   {
-    m_outputs->endAccess();
-    m_inputs->endAccess(); 
+    m_outputs_ECAT->endAccess();
+    m_inputs_ECAT->endAccess(); 
     return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_OKAY;
   }
   }
@@ -47,11 +47,15 @@ common::scheduler::SchedEventResponse RTApplication::execute(const common::sched
 void RTApplication::setDatalyer(comm::datalayer::IDataLayerFactory3* datalayerFactory){
   m_datalayer = datalayerFactory; 
   createClient(); 
-  openMemory(); 
+  std::string datalayerPath = "fieldbuses/ethercat/master/instances/ethercatmaster/realtime_data/input";
+  openMemory(m_inputs_ECAT, &m_inMap_ECAT, &m_inputRev_ECAT, datalayerPath); 
+  datalayerPath = "fieldbuses/ethercat/master/instances/ethercatmaster/realtime_data/output";
+  openMemory(m_outputs_ECAT, &m_outMap_ECAT, &m_outputRev_ECAT, datalayerPath); 
 }
 
 void RTApplication::resetDataLayer(){
-  closeMemory(); 
+  closeMemory(m_inputs_ECAT); 
+  closeMemory(m_outputs_ECAT); 
   destroyClient(); 
   m_datalayer = nullptr; 
 }
@@ -60,35 +64,24 @@ void RTApplication::createClient(){
   m_client = m_datalayer->createClient3(DL_IPC_AUTO);
 }
 
-void RTApplication::openMemory(){
+void RTApplication::openMemory(std::shared_ptr<comm::datalayer::IMemoryUser> mem, std::map<std::string,uint32_t>* mem_Map,
+    uint32_t* m_Rev, std::string m_DatalayerPath){
   if(m_client){
     comm::datalayer::Variant dlMap; 
-    auto result = m_client->readSync("fieldbuses/ethercat/master/instances/ethercatmaster/realtime_data/input/map",&dlMap); 
+    auto result = m_client->readSync(m_DatalayerPath + "/map",&dlMap); 
     auto varMap = comm::datalayer::GetMemoryMap(dlMap.getData());
-    m_inputRev = varMap->revision(); 
+    *m_Rev = varMap->revision(); 
     for(auto variables = varMap->variables()->begin(); variables!= varMap->variables()->end(); variables++){
-      m_inMap[variables->name()->str()] = variables->bitoffset(); 
+      (*mem_Map)[variables->name()->str()] = variables->bitoffset(); 
     }
-    result = m_datalayer->openMemory(m_inputs,"fieldbuses/ethercat/master/instances/ethercatmaster/realtime_data/input"); 
-
-    result = m_client->readSync("fieldbuses/ethercat/master/instances/ethercatmaster/realtime_data/output/map",&dlMap); 
-    varMap = comm::datalayer::GetMemoryMap(dlMap.getData());
-    m_outputRev = varMap->revision(); 
-    for(auto variables = varMap->variables()->begin(); variables!= varMap->variables()->end(); variables++){
-      m_outMap[variables->name()->str()] = variables->bitoffset(); 
-    }
-    result = m_datalayer->openMemory(m_outputs,"fieldbuses/ethercat/master/instances/ethercatmaster/realtime_data/output");
+    result = m_datalayer->openMemory(mem, m_DatalayerPath); 
   }
 }
 
-void RTApplication::closeMemory(){
-  if(m_inputs){
-    m_datalayer->closeMemory(m_inputs); 
-    m_inputs = nullptr; 
-  }
-  if(m_outputs){
-    m_datalayer->closeMemory(m_outputs); 
-    m_outputs = nullptr;
+void RTApplication::closeMemory(std::shared_ptr<comm::datalayer::IMemoryUser> mem){
+  if(mem){
+    m_datalayer->closeMemory(mem); 
+    mem = nullptr; 
   }
 }
 
@@ -96,6 +89,5 @@ void RTApplication::destroyClient(){
   if(m_client)
     delete m_client; 
 }
-
 
 }

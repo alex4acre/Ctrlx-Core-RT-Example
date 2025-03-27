@@ -6,7 +6,7 @@ int16_t* StatusWord;
 int16_t controlWord = 0x0100;
 int16_t DigitalOutputs = 0xFF;
 
-namespace EtherCATUpdate{
+namespace RTUpdate{
     void MDT(u_int8_t* outData, std::map<std::string,uint32_t> m_outMap)
     {
         m_ticks++; 
