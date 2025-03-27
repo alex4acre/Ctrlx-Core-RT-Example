@@ -50,13 +50,14 @@ namespace RTUpdate{
     void PLC_OUT(u_int8_t* outData, std::map<std::string,uint32_t> m_outMap)
     {
         PLCINT = (int16_t*)(&outData[m_outMap["iTest"]/8]);
-    }           
+        LOG_INFO("iTest Word: %i",(int)*PLCINT); 
+    }   
+
     void PLC_IN(u_int8_t* inData, std::map<std::string,uint32_t> m_inMap)
     {
-        if(0 == m_ticks%500)
+        if (PLCINT != 0)
         {
-            *PLCINT++;
+            std::memcpy(&inData[m_inMap["iTest"]/8], PLCINT, 2); 
         }
-        std::memcpy(&inData[m_inMap["iTest"]/8], PLCINT, 2); 
     }
 }

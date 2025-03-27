@@ -32,8 +32,8 @@ namespace Example{
       std::string m_datalayer_PLC_Out = "plc/app/Application/realtime_data/PRG_RTDatalayer_GVL_Output";
       std::map<std::string,uint32_t> m_outMap_PLC; 
       void createClient(); 
-      void openMemory(std::shared_ptr<comm::datalayer::IMemoryUser> mem, std::map<std::string,uint32_t>* mem_Map, uint32_t* m_Rev, std::string m_DatalayerPath);
-      void closeMemory(std::shared_ptr<comm::datalayer::IMemoryUser> mem); 
+      void openMemory(std::shared_ptr<comm::datalayer::IMemoryUser>* mem, std::map<std::string,uint32_t>* mem_Map, uint32_t* m_Rev, std::string m_DatalayerPath);
+      void closeMemory(std::shared_ptr<comm::datalayer::IMemoryUser>* mem); 
       void destroyClient(); 
   };
 }
