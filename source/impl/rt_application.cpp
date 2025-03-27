@@ -8,40 +8,74 @@ common::scheduler::SchedEventResponse RTApplication::execute(const common::sched
 {
   switch (eventType)
   {
-  //if(eventType == common::scheduler::SchedEventType::SCHED_EVENT_TICK)
-  case common::scheduler::SchedEventType::SCHED_EVENT_TICK:
-  {
-    u_int8_t* inData; 
-    u_int8_t* outData; 
-    auto result = m_inputs_ECAT->beginAccess(inData, m_inputRev_ECAT); 
-    if(result == DL_OK)
+    //if(eventType == common::scheduler::SchedEventType::SCHED_EVENT_TICK)
+    case common::scheduler::SchedEventType::SCHED_EVENT_TICK:
     {
-      RTUpdate::AT(inData, m_inMap_ECAT);
-    } 
-    else
-    {
-      LOG_WARNING("Failed to open the input data!")
-    } 
-    m_inputs_ECAT->endAccess(); 
-    result = m_outputs_ECAT->beginAccess(outData, m_outputRev_ECAT);
-    if(result == comm::datalayer::DlResult::DL_OK)
-      { 
-        RTUpdate::MDT(outData, m_outMap_ECAT);
-      }
-    else
-    {
-      LOG_WARNING("Failed to open the output data!")
-    }  
-    m_outputs_ECAT->endAccess(); 
-    return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_OKAY;
-  }
+      //begin ECAT Input Access
+      u_int8_t* inData; 
+      auto result = m_inputs_ECAT->beginAccess(inData, m_inputRev_ECAT); 
+      if(result == DL_OK)
+      {
+        RTUpdate::AT(inData, m_inMap_ECAT);
+      } 
+      else
+      {
+        LOG_WARNING("Failed to open the input data!")
+      } 
+      //End ECAT Input Access
+      m_inputs_ECAT->endAccess(); 
 
-  case common::scheduler::SchedEventType::SCHED_EVENT_SWITCH_TO_SERVICE:
-  {
-    m_outputs_ECAT->endAccess();
-    m_inputs_ECAT->endAccess(); 
-    return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_OKAY;
-  }
+      //begin PLC Input Access
+      result = m_inputs_PLC->beginAccess(inData, m_inputRev_PLC); 
+      if(result == DL_OK)
+      {
+        RTUpdate::PLC_IN(inData, m_inMap_PLC);
+      } 
+      else
+      {
+        LOG_WARNING("Failed to open the input data!")
+      }
+      //End PLC Input Access
+      m_inputs_PLC->endAccess(); 
+      
+      //begin ECAT Output Access
+      u_int8_t* outData; 
+      result = m_outputs_ECAT->beginAccess(outData, m_outputRev_ECAT);
+      if(result == comm::datalayer::DlResult::DL_OK)
+        { 
+          RTUpdate::MDT(outData, m_outMap_ECAT);
+        }
+      else
+      {
+        LOG_WARNING("Failed to open the output data!")
+      }  
+      //End ECAT Output Access
+      m_outputs_ECAT->endAccess(); 
+
+      //begin PLC Output Access
+      result = m_outputs_PLC->beginAccess(outData, m_outputRev_PLC);
+      if(result == comm::datalayer::DlResult::DL_OK)
+        { 
+          RTUpdate::PLC_OUT(outData, m_outMap_PLC);
+        }
+      else
+      {
+        LOG_WARNING("Failed to open the output data!")
+      }  
+      //End ECAT Input Access
+      m_outputs_PLC->endAccess(); 
+
+      return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_OKAY;
+    }
+
+    case common::scheduler::SchedEventType::SCHED_EVENT_SWITCH_TO_SERVICE:
+    {
+      m_outputs_ECAT->endAccess();
+      m_inputs_ECAT->endAccess(); 
+      m_outputs_PLC->endAccess();
+      m_inputs_PLC->endAccess(); 
+      return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_OKAY;
+    }
   }
 }
 void RTApplication::setDatalyer(comm::datalayer::IDataLayerFactory3* datalayerFactory){
@@ -51,11 +85,19 @@ void RTApplication::setDatalyer(comm::datalayer::IDataLayerFactory3* datalayerFa
   openMemory(m_inputs_ECAT, &m_inMap_ECAT, &m_inputRev_ECAT, datalayerPath); 
   datalayerPath = "fieldbuses/ethercat/master/instances/ethercatmaster/realtime_data/output";
   openMemory(m_outputs_ECAT, &m_outMap_ECAT, &m_outputRev_ECAT, datalayerPath); 
+
+  //Open PLC memory
+  openMemory(m_inputs_PLC, &m_inMap_PLC, &m_inputRev_PLC, datalayerPath); 
+  openMemory(m_outputs_PLC, &m_outMap_PLC, &m_outputRev_PLC, datalayerPath); 
 }
 
 void RTApplication::resetDataLayer(){
+  //Close the etherCAT memory
   closeMemory(m_inputs_ECAT); 
   closeMemory(m_outputs_ECAT); 
+  //Close the PLC memory
+  closeMemory(m_inputs_PLC); 
+  closeMemory(m_outputs_PLC); 
   destroyClient(); 
   m_datalayer = nullptr; 
 }

@@ -5,6 +5,7 @@ long int m_ticks = 0;
 int16_t* StatusWord;
 int16_t controlWord = 0x0100;
 int16_t DigitalOutputs = 0xFF;
+int16_t* PLCINT;
 
 namespace RTUpdate{
     void MDT(u_int8_t* outData, std::map<std::string,uint32_t> m_outMap)
@@ -43,5 +44,19 @@ namespace RTUpdate{
         //Read in the status word
         StatusWord = (int16_t*)(&inData[m_inMap["Axis1/AT.Drive_status_word"]/8]); 
         LOG_INFO("Status Word: %i",(int)*StatusWord); 
+    }
+
+
+    void PLC_OUT(u_int8_t* outData, std::map<std::string,uint32_t> m_outMap)
+    {
+        PLCINT = (int16_t*)(&outData[m_outMap["iTest"]/8]);
+    }           
+    void PLC_IN(u_int8_t* inData, std::map<std::string,uint32_t> m_inMap)
+    {
+        if(0 == m_ticks%500)
+        {
+            *PLCINT++;
+        }
+        std::memcpy(&inData[m_inMap["iTest"]/8], PLCINT, 2); 
     }
 }

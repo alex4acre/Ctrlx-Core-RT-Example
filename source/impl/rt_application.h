@@ -19,10 +19,18 @@ namespace Example{
       comm::datalayer::IClient3* m_client; 
       std::shared_ptr<comm::datalayer::IMemoryUser> m_inputs_ECAT; 
       std::shared_ptr<comm::datalayer::IMemoryUser> m_outputs_ECAT;  
+      std::shared_ptr<comm::datalayer::IMemoryUser> m_inputs_PLC; 
+      std::shared_ptr<comm::datalayer::IMemoryUser> m_outputs_PLC;  
       uint32_t m_inputRev_ECAT; 
       uint32_t m_outputRev_ECAT; 
+      uint32_t m_inputRev_PLC; 
+      uint32_t m_outputRev_PLC; 
       std::map<std::string,uint32_t> m_inMap_ECAT; 
       std::map<std::string,uint32_t> m_outMap_ECAT; 
+      std::map<std::string,uint32_t> m_inMap_PLC; 
+      std::string m_datalayer_PLC_In = "plc/app/Application/realtime_data/PRG_RTDatalayer_GVL_Input";
+      std::string m_datalayer_PLC_Out = "plc/app/Application/realtime_data/PRG_RTDatalayer_GVL_Output";
+      std::map<std::string,uint32_t> m_outMap_PLC; 
       void createClient(); 
       void openMemory(std::shared_ptr<comm::datalayer::IMemoryUser> mem, std::map<std::string,uint32_t>* mem_Map, uint32_t* m_Rev, std::string m_DatalayerPath);
       void closeMemory(std::shared_ptr<comm::datalayer::IMemoryUser> mem); 
