@@ -1,119 +1,235 @@
 #include "rt_application.h"
 #include "Logger.h"
+#include <thread>
+#include "common/scheduler/i_scheduler3.h"
 
 namespace Example{
 common::scheduler::SchedEventResponse RTApplication::execute(const common::scheduler::SchedEventType& eventType,
                                                             const common::scheduler::SchedEventPhase& eventPhase,
                                                             comm::datalayer::Variant& param)
 {
+
+  bool ECAT_InputMemOpen = false;
+  bool ECAT_OutputMemOpen = false;
+  uint tries = 0;
   switch (eventType)
   {
     //if(eventType == common::scheduler::SchedEventType::SCHED_EVENT_TICK)
     case common::scheduler::SchedEventType::SCHED_EVENT_TICK:
     {
-      //begin ECAT Input Access
+
       u_int8_t* inData; 
       u_int8_t* outData; 
 
-      auto result = m_inputs_ECAT->beginAccess(inData, m_inputRev_ECAT); 
+      //Begin ECAT Input Access
+      auto result = mMemManager_ECAT_IN._beginAccess(inData); 
       if(result == DL_OK)
       {
-        RTUpdate::AT(inData, m_inMap_ECAT);
-      } 
-      else
-      {
-        LOG_WARNING("Failed to open the input data!")
+        RTUpdate::AT(inData, mMemManager_ECAT_IN.m_Map);
       } 
       //End ECAT Input Access
-      m_inputs_ECAT->endAccess(); 
-
-      //begin PLC Output Access
-      result = m_outputs_PLC->beginAccess(outData, m_outputRev_PLC);
-      if(result == comm::datalayer::DlResult::DL_OK)
-        { 
-          RTUpdate::PLC_OUT(outData, m_outMap_PLC);
-        }
-      else
-      {
-        LOG_WARNING("Failed to open the output data!")
-      }  
-      //End ECAT Input Access
-      m_outputs_PLC->endAccess(); 
+      mMemManager_ECAT_IN._EndAccess(); 
       
-      
-      //begin ECAT Output Access
-      result = m_outputs_ECAT->beginAccess(outData, m_outputRev_ECAT);
-      if(result == comm::datalayer::DlResult::DL_OK)
-        { 
-          RTUpdate::MDT(outData, m_outMap_ECAT);
-        }
-      else
+      //Begin ECAT Output Access
+      result = mMemManager_ECAT_OUT._beginAccess(outData); 
+      if(result == DL_OK)
       {
-        LOG_WARNING("Failed to open the output data!")
-      }  
+        RTUpdate::MDT(outData, mMemManager_ECAT_OUT.m_Map);
+      } 
       //End ECAT Output Access
-      m_outputs_ECAT->endAccess(); 
-      
-      
-      //begin PLC Input Access
-      result = m_inputs_PLC->beginAccess(inData, m_inputRev_PLC); 
+      mMemManager_ECAT_OUT._EndAccess(); 
+
+      //Begin PLC Output Access
+      result = mMemManager_PLC_OUT._beginAccess(outData); 
       if(result == DL_OK)
       {
-        RTUpdate::PLC_IN(inData, m_inMap_PLC);
+        RTUpdate::PLC_OUT(outData, mMemManager_PLC_OUT.m_Map);
       } 
-      else
+      //End PLC Output Access
+      mMemManager_PLC_OUT._EndAccess(); 
+      
+      //Begin PLC Input Access
+      result = mMemManager_PLC_IN._beginAccess(inData); 
+      if(result == DL_OK)
       {
-        LOG_WARNING("Failed to open the input data!")
-      }
+        RTUpdate::PLC_OUT(inData, mMemManager_PLC_IN.m_Map);
+      }  
       //End PLC Input Access
-      m_inputs_PLC->endAccess(); 
-      
-      
+      mMemManager_PLC_IN._EndAccess(); 
 
       return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_OKAY;
     }
 
     case common::scheduler::SchedEventType::SCHED_EVENT_SWITCH_TO_SERVICE:
     {
-      m_outputs_ECAT->endAccess();
-      m_inputs_ECAT->endAccess(); 
-      //m_outputs_PLC->endAccess();
-      //m_inputs_PLC->endAccess(); 
+      /*close all of the memory*/
+      mMemManager_ECAT_OUT._closeMemory();
+      mMemManager_ECAT_IN._closeMemory();
+      mMemManager_PLC_OUT._closeMemory();
+      mMemManager_PLC_IN._closeMemory();
       return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_OKAY;
+    }
+
+    case common::scheduler::SchedEventType::SCHED_EVENT_SWITCH_TO_OPERATING:
+    {
+      if (eventPhase == common::scheduler::SchedEventPhase::SCHED_EVENT_PHASE_EXECUTE)
+      {
+        LOG_INFO("Now in the execute phase!");
+
+        /*set up the ECAT IN memory*/
+        while(!mMemManager_ECAT_IN.m_MapRetrieved)
+          {
+            mMemManager_ECAT_IN._getMap();
+            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
+          };
+        while(!mMemManager_ECAT_IN.m_MapValid)
+          {
+            mMemManager_ECAT_IN._verifyMap();
+            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
+          };
+        while(!mMemManager_ECAT_IN.m_ReadMap)
+          {
+            mMemManager_ECAT_IN._readMap(m_client);
+            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
+          } 
+
+        /*set up the ECAT OUT memory*/  
+        while(!mMemManager_ECAT_OUT.m_MapRetrieved)
+          {
+            mMemManager_ECAT_OUT._getMap();
+            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
+          };
+        while(!mMemManager_ECAT_OUT.m_MapValid)
+          {
+            mMemManager_ECAT_OUT._verifyMap();
+            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
+          };
+        while(!mMemManager_ECAT_OUT.m_ReadMap)
+          {
+            mMemManager_ECAT_OUT._readMap(m_client);
+            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
+          }
+          
+        /*set up the PLC IN memory*/
+        while(!mMemManager_PLC_IN.m_MapRetrieved)
+          {
+            mMemManager_PLC_IN._getMap();
+            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
+          };
+        while(!mMemManager_PLC_IN.m_MapValid)
+          {
+            mMemManager_PLC_IN._verifyMap();
+            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
+          };
+        while(!mMemManager_PLC_IN.m_ReadMap)
+          {
+            mMemManager_PLC_IN._readMap(m_client);
+            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
+          } 
+
+        /*set up the PLC OUT memory*/  
+        while(!mMemManager_PLC_OUT.m_MapRetrieved)
+          {
+            mMemManager_PLC_OUT._getMap();
+            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
+          };
+        while(!mMemManager_PLC_OUT.m_MapValid)
+          {
+            mMemManager_PLC_OUT._verifyMap();
+            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
+          };
+        while(!mMemManager_PLC_OUT.m_ReadMap)
+          {
+            mMemManager_PLC_OUT._readMap(m_client);
+            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
+          }  
+      }
+      if (eventPhase == common::scheduler::SchedEventPhase::SCHED_EVENT_PHASE_NONE)
+      {
+        LOG_INFO("No phase executed!");
+      }
+      if (eventPhase == common::scheduler::SchedEventPhase::SCHED_EVENT_PHASE_BEGIN)
+      {
+        LOG_INFO("Now in the begin phase!");
+        /*Open the ECAT IN memory*/
+        while(!mMemManager_ECAT_IN.m_MemOpen)
+          {
+            mMemManager_ECAT_IN._openMemory(m_datalayer_ECAT_In, m_datalayer);
+            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
+          }
+        
+        /*Open the ECAT OUT memory*/  
+        while(!mMemManager_ECAT_OUT.m_MemOpen)
+          {
+            mMemManager_ECAT_OUT._openMemory(m_datalayer_ECAT_Out, m_datalayer);
+            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
+          }  
+        
+        /*Open the PLC IN memory*/
+        while(!mMemManager_PLC_IN.m_MemOpen)
+          {
+            mMemManager_PLC_IN._openMemory(m_datalayer_PLC_In, m_datalayer);
+            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
+          }
+        
+        /*Open the PLC OUT memory*/  
+        while(!mMemManager_PLC_OUT.m_MemOpen)
+          {
+            mMemManager_PLC_OUT._openMemory(m_datalayer_PLC_Out, m_datalayer);
+            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
+          }
+
+      }
+      if (eventPhase == common::scheduler::SchedEventPhase::SCHED_EVENT_PHASE_END)
+      {
+        LOG_INFO("Now in the end phase!");
+        return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_OKAY;
+      }
+      
     }
   }
 }
-void RTApplication::setDatalyer(comm::datalayer::IDataLayerFactory3* datalayerFactory){
-  m_datalayer = datalayerFactory; 
-  createClient(); 
-  std::string datalayerPath = "fieldbuses/ethercat/master/instances/ethercatmaster/realtime_data/input";
-  openMemory(&m_inputs_ECAT, &m_inMap_ECAT, &m_inputRev_ECAT, datalayerPath); 
-  datalayerPath = "fieldbuses/ethercat/master/instances/ethercatmaster/realtime_data/output";
-  openMemory(&m_outputs_ECAT, &m_outMap_ECAT, &m_outputRev_ECAT, datalayerPath); 
-
-
-  //Open PLC memory
-  openMemory(&m_inputs_PLC, &m_inMap_PLC, &m_inputRev_PLC, m_datalayer_PLC_In); 
-  openMemory(&m_outputs_PLC, &m_outMap_PLC, &m_outputRev_PLC, m_datalayer_PLC_Out); 
-  
+void RTApplication::setDatalayer(comm::datalayer::IDataLayerFactory3* datalayerFactory){
+  calltocreateclient++;
+  LOG_INFO("call to create client %i", calltocreateclient);
+  if (!m_client)
+  {
+    LOG_INFO("Creating Client and Opening Memory");
+    m_datalayer = datalayerFactory; 
+    createClient(); 
+  }
+  if (m_client)
+  {
+    LOG_INFO("Succesfully created client");
+  }
+  else
+    LOG_ERROR("Failed to create client");
 }
 
 void RTApplication::resetDataLayer(){
   //Close the etherCAT memory
-  closeMemory(&m_inputs_ECAT); 
-  closeMemory(&m_outputs_ECAT); 
+  //closeMemory(&m_inputs_ECAT); 
+  //closeMemory(&m_outputs_ECAT); 
   //Close the PLC memory
-  closeMemory(&m_inputs_PLC); 
-  closeMemory(&m_outputs_PLC); 
+  //closeMemory(&m_inputs_PLC); 
+  //closeMemory(&m_outputs_PLC);
+  //mMemManager_ECAT_IN._closeMemory(m_datalayer); 
+  mMemManager_ECAT_IN._closeMemory();
+  mMemManager_ECAT_OUT._closeMemory();
+  mMemManager_PLC_IN._closeMemory();
+  mMemManager_PLC_OUT._closeMemory();
   destroyClient(); 
   m_datalayer = nullptr; 
 }
 
 void RTApplication::createClient(){
-  m_client = m_datalayer->createClient3(DL_IPC_AUTO);
+  if (!m_client)
+  {
+    m_client = m_datalayer->createClient3(DL_IPC_AUTO);
+  }
 }
 
-void RTApplication::openMemory(std::shared_ptr<comm::datalayer::IMemoryUser>* mem, std::map<std::string,uint32_t>* mem_Map,
+/*void RTApplication::openMemory(std::shared_ptr<comm::datalayer::IMemoryUser>* mem, std::map<std::string,uint32_t>* mem_Map,
     uint32_t* m_Rev, std::string m_DatalayerPath){
   if(m_client){
     comm::datalayer::Variant dlMap; 
@@ -125,6 +241,79 @@ void RTApplication::openMemory(std::shared_ptr<comm::datalayer::IMemoryUser>* me
     }
     result = m_datalayer->openMemory(*mem, m_DatalayerPath); 
   }
+}*/
+
+/*
+void RTApplication::openMemory(std::shared_ptr<comm::datalayer::IMemoryUser> &mem, std::map<std::string,uint32_t>* mem_Map,
+  uint32_t* m_Rev, std::string &m_DatalayerPath){
+if(m_client){
+  comm::datalayer::Variant dlMap; 
+  auto result = m_client->readSync(m_DatalayerPath + "/map", &dlMap); 
+  auto varMap = comm::datalayer::GetMemoryMap(dlMap.getData());
+  *m_Rev = varMap->revision(); 
+  for(auto variables = varMap->variables()->begin(); variables!= varMap->variables()->end(); variables++){
+    (*mem_Map)[variables->name()->str()] = variables->bitoffset(); 
+  }
+  result = m_datalayer->openMemory(mem, m_DatalayerPath); 
+}*/
+
+bool RTApplication::openMemory_V2(std::shared_ptr<comm::datalayer::IMemoryUser> &mem, std::map<std::string,uint32_t>* mem_Map,
+  uint32_t* m_Rev, std::string &m_DatalayerPath){
+if(m_client){
+  comm::datalayer::Variant dlMap; 
+
+  auto result = m_datalayer->openMemory(mem, m_DatalayerPath); 
+  if (comm::datalayer::STATUS_FAILED(result))
+  {
+    LOG_ERROR("open Memory failed: %s", result.toString());
+    return false;
+  }
+  else
+  LOG_INFO("openMemory succeeded: %s", result.toString());
+  int tries = 10;
+  do
+  {
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    result = mem->getMemoryMap(dlMap);
+    if (comm::datalayer::STATUS_FAILED(result))
+    {
+      tries--;
+      if (tries <= 0)
+        break;
+    }
+  } while (comm::datalayer::STATUS_FAILED(result));
+  if (comm::datalayer::STATUS_FAILED(result))
+  {
+    LOG_ERROR("getMemoryMap failed: %s", m_DatalayerPath.c_str(),
+              result.toString());
+              m_datalayer->closeMemory(mem);
+    return false;
+  }
+  else
+  LOG_INFO("getMemoryMap succeeded: %s", result.toString());
+
+  result = dlMap.verifyFlatbuffers(comm::datalayer::VerifyMemoryMapBuffer);
+  if (comm::datalayer::STATUS_FAILED(result))
+  {
+    LOG_ERROR("Verifing map %s failed: %s",m_DatalayerPath.c_str(), result.toString());
+    m_datalayer->closeMemory(mem);
+    return false;
+  }
+  else
+    LOG_INFO("Verifing map %s Succeeded: %s",m_DatalayerPath.c_str(), result.toString());
+  
+  if (STATUS_FAILED(result = m_client->readSync(m_DatalayerPath + "/map", &dlMap)))
+    {LOG_ERROR("Failed to read node failed: %s", result);
+    return false;}
+  auto varMap = comm::datalayer::GetMemoryMap(dlMap.getData());
+  *m_Rev = varMap->revision(); 
+  for(auto variables = varMap->variables()->begin(); variables!= varMap->variables()->end(); variables++){
+    (*mem_Map)[variables->name()->str()] = variables->bitoffset(); 
+  }
+  return true;
+  }
+  else
+    LOG_WARNING("Client was not created!");
 }
 
 void RTApplication::closeMemory(std::shared_ptr<comm::datalayer::IMemoryUser>* mem){
@@ -134,9 +323,9 @@ void RTApplication::closeMemory(std::shared_ptr<comm::datalayer::IMemoryUser>* m
   }
 }
 
-void RTApplication::destroyClient(){
+void RTApplication::destroyClient()
+{
   if(m_client)
     delete m_client; 
 }
-
 }

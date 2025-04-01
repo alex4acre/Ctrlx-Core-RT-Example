@@ -4,7 +4,7 @@
 
 namespace Example{
 std::shared_ptr<common::scheduler::ICallable> RTApplicationFactory::createCallable(const comm::datalayer::Variant& param){
-    m_application->setDatalyer(m_dataLayer); 
+    m_application->setDatalayer(m_dataLayer); 
     return m_application;
 }
 
