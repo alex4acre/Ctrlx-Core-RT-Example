@@ -24,5 +24,5 @@ class ExampleComponent
     comm::datalayer::IDataLayerFactory3* m_dataLayer; 
     common::scheduler::IScheduler3* m_schedular; 
     //common::log::trace::IRegistrationRealTime3* m_log; 
-    std::shared_ptr<Example::RTApplicationFactory> m_appFactory = std::make_shared<Example::RTApplicationFactory>();
+    std::shared_ptr<Example::RTApplicationFactory> m_appFactory;// = std::make_shared<Example::RTApplicationFactory>();
 };

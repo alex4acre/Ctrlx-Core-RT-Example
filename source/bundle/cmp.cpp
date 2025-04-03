@@ -3,21 +3,31 @@
 #include "common/log/trace/log_buffered3.h"
 #include "../impl/Logger.h"
 void ExampleComponent::init(){
+  m_appFactory = std::make_shared<Example::RTApplicationFactory>();
 }
 void ExampleComponent::start(){
   m_appFactory->setDataLayer(m_dataLayer); 
   m_schedular->registerCallableFactory(m_appFactory, "Example RT App"); 
 }
+
 void ExampleComponent::stop() {
+  LOG_INFO("Stopping the celix bundle.");
   m_appFactory->resetDataLayer(); 
   m_schedular->unregisterCallableFactory(m_appFactory, true); 
 }
+
 void ExampleComponent::deInit(){
-      std::cout<<"deInit" << std::endl; 
+  m_appFactory = nullptr;
+  std::cout<<"deInit" << std::endl; 
 }
+
+
+//call back for scheduler
 void ExampleComponent::setSchedularService(common::scheduler::IScheduler3* schedular){
   m_schedular = schedular; 
 }
+
+//call back for datalayer
 void ExampleComponent::setDatalayerService(comm::datalayer::IDataLayerFactory3* dataLyaer){
   m_dataLayer = dataLyaer; 
 }

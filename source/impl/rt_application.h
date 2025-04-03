@@ -143,7 +143,7 @@ namespace Example{
 
     private: 
 
-    
+      bool startFlag = false;
       comm::datalayer::IDataLayerFactory3* m_datalayer;
       comm::datalayer::IClient3* m_client; 
       std::shared_ptr<comm::datalayer::IMemoryUser> m_inputs_ECAT; 

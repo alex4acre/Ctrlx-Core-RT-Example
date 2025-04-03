@@ -56,7 +56,7 @@ namespace RTUpdate{
           StatusWord = (int16_t*)(&inData[m_inMap["Axis1/AT.Drive_status_word"]/8]); 
         if(0 == m_ticks%500)
           {
-            LOG_INFO("Status Word: %i",(int)*StatusWord); 
+            //LOG_INFO("Status Word: %i",(int)*StatusWord); 
           }  
         }
     }
