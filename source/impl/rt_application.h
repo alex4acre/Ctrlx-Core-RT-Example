@@ -4,6 +4,8 @@
 #include <map> 
 #include "../User/EtherCATUpdates.h"
 #include "Logger.h"
+#include <thread>
+#include <common/scheduler/state2_generated.h>
 
     
 class RTMemObject
@@ -115,7 +117,7 @@ class RTMemObject
             }
             else
             {
-              LOG_WARNING("RT Data not yet available.")
+              //LOG_WARNING("RT Data not yet available.")
               return comm::datalayer::DlResult::DL_FAILED;
             }
           }
@@ -132,6 +134,43 @@ class RTMemObject
 
 namespace Example{
 
+  //! Enum of possible states of the final state machine to handle the none realtime actions of the callable.
+  enum FinalStateMachineState
+  {
+    UNDEFINED = 0,
+    IDLE,
+    ERROR,
+    UNKNOWN,
+    SCHED_SETUP,
+    SCHED_SETUP_PREPARE,
+    SCHED_SERVICE,
+    SCHED_OPERATING_PHASE_NONE,
+    SCHED_OPERATING_PHASE_BEGIN,
+    SCHED_OPERATION_PHASE_EXECUTE,
+    SCHED_OPERATING_PREPARE,
+    SCHED_OPERATING,
+    TASK_PROPERTIES_CHANGE,
+    SCHED_EXIT
+  };
+
+  //! States as text
+  static std::string s_states[] =
+      {
+          "UNDEFINED",
+          "IDLE",
+          "ERROR",
+          "UNKNOWN",
+          "SCHED_SETUP",
+          "SCHED_SERVICE_PREPARE",
+          "SCHED_SERVICE",
+          "SCHED_OPERATING_PHASE_NONE",
+          "SCHED_OPERATING_PHASE_BEGIN",
+          "SCHED_OPERATION_PHASE_EXECUTE",
+          "SCHED_OPERATING_PREPARE",
+          "SCHED_OPERATING",
+          "TASK_PROPERTIES_CHANGE",
+          "SCHED_EXIT"};
+
   class RTApplication:public common::scheduler::ICallable
   {
     public:
@@ -140,9 +179,17 @@ namespace Example{
                                                     comm::datalayer::Variant& param); 
       void setDatalayer(comm::datalayer::IDataLayerFactory3* datalayerFactory);
       void resetDataLayer();
-
+      //! Starts the final state machine in a separate thread.
+      void finalStateMachineStart();
+      // Stops the final state machine thread.
+      void finalStateMachineStop();
+      
     private: 
-
+      int m_instanceID;
+      std::thread m_thread;
+      FinalStateMachineState m_finalStateMachineState = FinalStateMachineState::IDLE;
+      //! Current state of this callable.
+      common::scheduler::fbs2::CurrentState m_fbsCurrentState;
       bool startFlag = false;
       comm::datalayer::IDataLayerFactory3* m_datalayer;
       comm::datalayer::IClient3* m_client; 
@@ -173,6 +220,7 @@ namespace Example{
       void closeMemory(std::shared_ptr<comm::datalayer::IMemoryUser>* mem); 
       void destroyClient(); 
       uint calltocreateclient = 0;
+      void finalStateMachine();
   };
 
  

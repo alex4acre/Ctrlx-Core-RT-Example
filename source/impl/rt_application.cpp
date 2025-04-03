@@ -13,90 +13,6 @@ common::scheduler::SchedEventResponse RTApplication::execute(const common::sched
     //if(eventType == common::scheduler::SchedEventType::SCHED_EVENT_TICK)
     case common::scheduler::SchedEventType::SCHED_EVENT_TICK:
     {
-
-      
-      if(!mMemManager_ECAT_IN.m_MemOpen)
-        {
-          mMemManager_ECAT_IN._openMemory(m_datalayer_ECAT_In, m_datalayer);
-        }
-        
-      /*Open the ECAT OUT memory*/  
-      else if (!mMemManager_ECAT_OUT.m_MemOpen)
-        {
-          mMemManager_ECAT_OUT._openMemory(m_datalayer_ECAT_Out, m_datalayer);
-        }  
-      
-      /*Open the PLC IN memory*/
-      else if (!mMemManager_PLC_IN.m_MemOpen)
-        {
-          mMemManager_PLC_IN._openMemory(m_datalayer_PLC_In, m_datalayer);
-        }
-      
-      /*Open the PLC OUT memory*/  
-      else if (!mMemManager_PLC_OUT.m_MemOpen)
-        {
-          mMemManager_PLC_OUT._openMemory(m_datalayer_PLC_Out, m_datalayer);
-        }
-
-      else if (!mMemManager_ECAT_IN.m_MapRetrieved)
-        {
-          mMemManager_ECAT_IN._getMap();
-        }
-
-      else if (!mMemManager_ECAT_IN.m_MapValid)
-        {
-          mMemManager_ECAT_IN._verifyMap();
-        }
-
-      else if (!mMemManager_ECAT_IN.m_ReadMap)
-        {
-          mMemManager_ECAT_IN._readMap(m_client);
-        } 
-
-      /*set up the ECAT OUT memory*/  
-      else if (!mMemManager_ECAT_OUT.m_MapRetrieved)
-        {
-          mMemManager_ECAT_OUT._getMap();
-        }
-
-      else if (!mMemManager_ECAT_OUT.m_MapValid)
-        {
-          mMemManager_ECAT_OUT._verifyMap();
-        }
-      else if (!mMemManager_ECAT_OUT.m_ReadMap)
-        {
-          mMemManager_ECAT_OUT._readMap(m_client);
-        }
-        
-      /*set up the PLC IN memory*/
-      else if (!mMemManager_PLC_IN.m_MapRetrieved)
-        {
-          mMemManager_PLC_IN._getMap();
-        }
-      else if (!mMemManager_PLC_IN.m_MapValid)
-        {
-          mMemManager_PLC_IN._verifyMap();
-        }
-      else if (!mMemManager_PLC_IN.m_ReadMap)
-        {
-          mMemManager_PLC_IN._readMap(m_client);
-        } 
-
-      /*set up the PLC OUT memory*/  
-      else if (!mMemManager_PLC_OUT.m_MapRetrieved)
-        {
-          mMemManager_PLC_OUT._getMap();
-        }
-      else if (!mMemManager_PLC_OUT.m_MapValid)
-        {
-          mMemManager_PLC_OUT._verifyMap();
-        }
-      else if (!mMemManager_PLC_OUT.m_ReadMap)
-        {
-          mMemManager_PLC_OUT._readMap(m_client);
-        } 
-      else
-      {
         if (!startFlag)
         {
           LOG_INFO("Cyclic Access Succesfully started!");
@@ -140,18 +56,21 @@ common::scheduler::SchedEventResponse RTApplication::execute(const common::sched
         }  
         //End PLC Input Access
         mMemManager_PLC_IN._EndAccess(); 
-      }
+      
 
       return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_OKAY;
-      break;
     }
 
     case common::scheduler::SchedEventType::SCHED_EVENT_SWITCH_TO_SETUP:
     {
       LOG_INFO("Switching to Setup");
       /*close all of the memory*/
+      if (eventPhase == common::scheduler::SchedEventPhase::SCHED_EVENT_PHASE_END)
+      {
+        m_fbsCurrentState = common::scheduler::fbs2::CurrentState::CurrentState_SETUP;
+        m_finalStateMachineState = FinalStateMachineState::SCHED_SETUP_PREPARE;
+      }
       return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_OKAY;
-      break;
     }
     
     case common::scheduler::SchedEventType::SCHED_EVENT_SWITCH_TO_CONFIG:
@@ -159,15 +78,18 @@ common::scheduler::SchedEventResponse RTApplication::execute(const common::sched
       LOG_INFO("Switching to Config");
       /*close all of the memory*/
       return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_OKAY;
-      break;
     }
 
     case common::scheduler::SchedEventType::SCHED_EVENT_SWITCH_TO_EXIT:
     {
       LOG_INFO("Switching to Exit");
       /*close all of the memory*/
+      if (eventPhase == common::scheduler::SchedEventPhase::SCHED_EVENT_PHASE_END)
+      {
+        m_finalStateMachineState = FinalStateMachineState::SCHED_EXIT;
+        m_fbsCurrentState = common::scheduler::fbs2::CurrentState::CurrentState_EXIT;
+      }
       return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_OKAY;
-      break;
     }
 
     case common::scheduler::SchedEventType::SCHED_EVENT_SWITCH_TO_SERVICE:
@@ -178,132 +100,46 @@ common::scheduler::SchedEventResponse RTApplication::execute(const common::sched
       mMemManager_ECAT_IN._closeMemory();
       mMemManager_PLC_OUT._closeMemory();
       mMemManager_PLC_IN._closeMemory();
+      if (eventPhase == common::scheduler::SchedEventPhase::SCHED_EVENT_PHASE_END)
+      {
+        m_finalStateMachineState = FinalStateMachineState::SCHED_SERVICE;
+        m_fbsCurrentState = common::scheduler::fbs2::CurrentState::CurrentState_SERVICE;
+      }
       return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_OKAY;
-      break;
     }
 
     case common::scheduler::SchedEventType::SCHED_EVENT_SWITCH_TO_OPERATING:
     {
       startFlag = false;
-      if (eventPhase == common::scheduler::SchedEventPhase::SCHED_EVENT_PHASE_EXECUTE)
+      switch (eventPhase)
       {
-        LOG_INFO("Now in the execute phase!");
-
-        /*set up the ECAT IN memory*/
-        /*while(!mMemManager_ECAT_IN.m_MapRetrieved)
-          {
-            mMemManager_ECAT_IN._getMap();
-            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
-          };
-        while(!mMemManager_ECAT_IN.m_MapValid)
-          {
-            mMemManager_ECAT_IN._verifyMap();
-            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
-          };
-        while(!mMemManager_ECAT_IN.m_ReadMap)
-          {
-            mMemManager_ECAT_IN._readMap(m_client);
-            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
-          } */
-
-        /*set up the ECAT OUT memory*/  
-        /*while(!mMemManager_ECAT_OUT.m_MapRetrieved)
-          {
-            mMemManager_ECAT_OUT._getMap();
-            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
-          };
-        while(!mMemManager_ECAT_OUT.m_MapValid)
-          {
-            mMemManager_ECAT_OUT._verifyMap();
-            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
-          };
-        while(!mMemManager_ECAT_OUT.m_ReadMap)
-          {
-            mMemManager_ECAT_OUT._readMap(m_client);
-            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
-          }*/
-          
-        /*set up the PLC IN memory*/
-        /*while(!mMemManager_PLC_IN.m_MapRetrieved)
-          {
-            mMemManager_PLC_IN._getMap();
-            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
-          };
-        while(!mMemManager_PLC_IN.m_MapValid)
-          {
-            mMemManager_PLC_IN._verifyMap();
-            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
-          };
-        while(!mMemManager_PLC_IN.m_ReadMap)
-          {
-            mMemManager_PLC_IN._readMap(m_client);
-            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
-          } */
-
-        /*set up the PLC OUT memory*/  
-        /*while(!mMemManager_PLC_OUT.m_MapRetrieved)
-          {
-            mMemManager_PLC_OUT._getMap();
-            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
-          };
-        while(!mMemManager_PLC_OUT.m_MapValid)
-          {
-            mMemManager_PLC_OUT._verifyMap();
-            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
-          };
-        while(!mMemManager_PLC_OUT.m_ReadMap)
-          {
-            mMemManager_PLC_OUT._readMap(m_client);
-            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
-          }  */
-      }
-      if (eventPhase == common::scheduler::SchedEventPhase::SCHED_EVENT_PHASE_NONE)
-      {
-        LOG_INFO("No phase executed!");
-      }
-      if (eventPhase == common::scheduler::SchedEventPhase::SCHED_EVENT_PHASE_BEGIN)
-      {
-        LOG_INFO("Now in the begin phase!");
-        /*Open the ECAT IN memory*/
-        /*while(!mMemManager_ECAT_IN.m_MemOpen)
-          {
-            mMemManager_ECAT_IN._openMemory(m_datalayer_ECAT_In, m_datalayer);
-            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
-          }*/
-        
-        /*Open the ECAT OUT memory*/  
-        /*while(!mMemManager_ECAT_OUT.m_MemOpen)
-          {
-            mMemManager_ECAT_OUT._openMemory(m_datalayer_ECAT_Out, m_datalayer);
-            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
-          }*/  
-        
-        /*Open the PLC IN memory*/
-        /*while(!mMemManager_PLC_IN.m_MemOpen)
-          {
-            mMemManager_PLC_IN._openMemory(m_datalayer_PLC_In, m_datalayer);
-            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
-          }*/
-        
-        /*Open the PLC OUT memory*/  
-        /*while(!mMemManager_PLC_OUT.m_MemOpen)
-          {
-            mMemManager_PLC_OUT._openMemory(m_datalayer_PLC_Out, m_datalayer);
-            return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_IN_PROCESS;
-          }*/
-
-      }
-      if (eventPhase == common::scheduler::SchedEventPhase::SCHED_EVENT_PHASE_END)
-      {
-        LOG_INFO("Now in the end phase!");
-        return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_OKAY;
+      case common::scheduler::SchedEventPhase::SCHED_EVENT_PHASE_NONE:
+        m_finalStateMachineState = FinalStateMachineState::SCHED_OPERATING_PHASE_NONE;
+        break;
+      case common::scheduler::SchedEventPhase::SCHED_EVENT_PHASE_BEGIN:
+        m_finalStateMachineState = FinalStateMachineState::SCHED_OPERATING_PHASE_BEGIN;
+        break;
+  
+      case common::scheduler::SchedEventPhase::SCHED_EVENT_PHASE_EXECUTE:
+        m_finalStateMachineState = FinalStateMachineState::SCHED_OPERATION_PHASE_EXECUTE;
+        break;
+  
+      case common::scheduler::SchedEventPhase::SCHED_EVENT_PHASE_END:
+        m_finalStateMachineState = FinalStateMachineState::SCHED_OPERATING_PREPARE;
+        m_fbsCurrentState = common::scheduler::fbs2::CurrentState::CurrentState_OPERATING;
+        break;
+  
+      default:
+        LOG_WARNING("#%d UNHANDLED eventPhase=%s ", m_instanceID, common::scheduler::getSchedEventPhaseAsString(eventPhase).c_str());
+        break;
       }
       return common::scheduler::SchedEventResponse::SCHED_EVENT_RESP_OKAY;
-      break;
     }
   }
 }
-void RTApplication::setDatalayer(comm::datalayer::IDataLayerFactory3* datalayerFactory){
+  
+void RTApplication::setDatalayer(comm::datalayer::IDataLayerFactory3* datalayerFactory)
+{
   calltocreateclient++;
   LOG_INFO("call to create client %i", calltocreateclient);
   if (!m_client)
@@ -336,41 +172,163 @@ void RTApplication::resetDataLayer(){
   m_datalayer = nullptr; 
 }
 
-void RTApplication::createClient(){
+void Example::RTApplication::createClient(){
   if (!m_client)
   {
     m_client = m_datalayer->createClient3(DL_IPC_AUTO);
   }
 }
 
-/*void RTApplication::openMemory(std::shared_ptr<comm::datalayer::IMemoryUser>* mem, std::map<std::string,uint32_t>* mem_Map,
-    uint32_t* m_Rev, std::string m_DatalayerPath){
-  if(m_client){
-    comm::datalayer::Variant dlMap; 
-    auto result = m_client->readSync(m_DatalayerPath + "/map", &dlMap); 
-    auto varMap = comm::datalayer::GetMemoryMap(dlMap.getData());
-    *m_Rev = varMap->revision(); 
-    for(auto variables = varMap->variables()->begin(); variables!= varMap->variables()->end(); variables++){
-      (*mem_Map)[variables->name()->str()] = variables->bitoffset(); 
+//! Starts the final state machine in a separate thread.
+void RTApplication::finalStateMachineStart()
+{
+  LOG_INFO("#%d", m_instanceID);
+
+  m_finalStateMachineState = FinalStateMachineState::IDLE;
+  m_thread = std::thread(&RTApplication::finalStateMachine, this);
+}
+
+// Stops the final state machine thread.
+void RTApplication::finalStateMachineStop()
+{
+  LOG_INFO("#%d", m_instanceID);
+
+  RTApplication::m_finalStateMachineState = FinalStateMachineState::SCHED_EXIT;
+  if (m_thread.joinable())
+  {
+    m_thread.join();
+  }
+  LOG_INFO("#%d stopped.", m_instanceID);
+}
+
+
+//! Implementation of the final state machine, handles none realtime actions (outside the scheduler context).
+void RTApplication::finalStateMachine()
+{
+  char counter = 0;
+  while (true)
+  {
+    counter = (++counter) & 7;
+    //LOG_INFO("%d #%d state=%s schedEventType=%s", counter, m_instanceID, s_states[m_finalStateMachineState].c_str(), common::scheduler::getSchedEventTypeAsString(m_schedEventType).c_str());
+
+    switch (m_finalStateMachineState)
+    {
+        // Known states, but nothing to do
+      case FinalStateMachineState::IDLE:
+      case FinalStateMachineState::ERROR:
+      case FinalStateMachineState::UNKNOWN:
+      case FinalStateMachineState::SCHED_SERVICE:
+      case FinalStateMachineState::SCHED_OPERATING_PHASE_NONE:
+      case FinalStateMachineState::SCHED_OPERATING_PHASE_BEGIN:
+      case FinalStateMachineState::SCHED_OPERATION_PHASE_EXECUTE:
+      case FinalStateMachineState::TASK_PROPERTIES_CHANGE:
+        break;
+      case FinalStateMachineState::SCHED_EXIT:
+      {
+        LOG_INFO("Terminating thread #%d", m_instanceID);
+        return; // Terminate thread
+      }
+      case FinalStateMachineState::SCHED_SETUP_PREPARE:
+      case FinalStateMachineState::SCHED_OPERATING_PREPARE:
+        {
+          if(!mMemManager_ECAT_IN.m_MemOpen)
+            {
+              mMemManager_ECAT_IN._openMemory(m_datalayer_ECAT_In, m_datalayer);
+            }
+            
+          /*Open the ECAT OUT memory*/  
+          else if (!mMemManager_ECAT_OUT.m_MemOpen)
+            {
+              mMemManager_ECAT_OUT._openMemory(m_datalayer_ECAT_Out, m_datalayer);
+            }  
+          
+          /*Open the PLC IN memory*/
+          else if (!mMemManager_PLC_IN.m_MemOpen)
+            {
+              mMemManager_PLC_IN._openMemory(m_datalayer_PLC_In, m_datalayer);
+            }
+          
+          /*Open the PLC OUT memory*/  
+          else if (!mMemManager_PLC_OUT.m_MemOpen)
+            {
+              mMemManager_PLC_OUT._openMemory(m_datalayer_PLC_Out, m_datalayer);
+            }
+
+          else if (!mMemManager_ECAT_IN.m_MapRetrieved)
+            {
+              mMemManager_ECAT_IN._getMap();
+            }
+
+          else if (!mMemManager_ECAT_IN.m_MapValid)
+            {
+              mMemManager_ECAT_IN._verifyMap();
+            }
+
+          else if (!mMemManager_ECAT_IN.m_ReadMap)
+            {
+              mMemManager_ECAT_IN._readMap(m_client);
+            } 
+
+          /*set up the ECAT OUT memory*/  
+          else if (!mMemManager_ECAT_OUT.m_MapRetrieved)
+            {
+              mMemManager_ECAT_OUT._getMap();
+            }
+
+          else if (!mMemManager_ECAT_OUT.m_MapValid)
+            {
+              mMemManager_ECAT_OUT._verifyMap();
+            }
+          else if (!mMemManager_ECAT_OUT.m_ReadMap)
+            {
+              mMemManager_ECAT_OUT._readMap(m_client);
+            }
+            
+          /*set up the PLC IN memory*/
+          else if (!mMemManager_PLC_IN.m_MapRetrieved)
+            {
+              mMemManager_PLC_IN._getMap();
+            }
+          else if (!mMemManager_PLC_IN.m_MapValid)
+            {
+              mMemManager_PLC_IN._verifyMap();
+            }
+          else if (!mMemManager_PLC_IN.m_ReadMap)
+            {
+              mMemManager_PLC_IN._readMap(m_client);
+            } 
+
+          /*set up the PLC OUT memory*/  
+          else if (!mMemManager_PLC_OUT.m_MapRetrieved)
+            {
+              mMemManager_PLC_OUT._getMap();
+            }
+          else if (!mMemManager_PLC_OUT.m_MapValid)
+            {
+              mMemManager_PLC_OUT._verifyMap();
+            }
+          else if (!mMemManager_PLC_OUT.m_ReadMap)
+            {
+              mMemManager_PLC_OUT._readMap(m_client);
+            } 
+          
+          m_finalStateMachineState = FinalStateMachineState::SCHED_OPERATING;
+          break;
+          }
+      case FinalStateMachineState::SCHED_SETUP:
+      case FinalStateMachineState::SCHED_OPERATING:
+        // execute() will call executeSchedulerEventTickReadDiWriteDo()
+        break;
+
+      default:
+        LOG_WARNING("Unhandled FinalStateMachineState %d", m_finalStateMachineState);
+        break;
     }
-    result = m_datalayer->openMemory(*mem, m_DatalayerPath); 
-  }
-}*/
 
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+  }
+}
 /*
-void RTApplication::openMemory(std::shared_ptr<comm::datalayer::IMemoryUser> &mem, std::map<std::string,uint32_t>* mem_Map,
-  uint32_t* m_Rev, std::string &m_DatalayerPath){
-if(m_client){
-  comm::datalayer::Variant dlMap; 
-  auto result = m_client->readSync(m_DatalayerPath + "/map", &dlMap); 
-  auto varMap = comm::datalayer::GetMemoryMap(dlMap.getData());
-  *m_Rev = varMap->revision(); 
-  for(auto variables = varMap->variables()->begin(); variables!= varMap->variables()->end(); variables++){
-    (*mem_Map)[variables->name()->str()] = variables->bitoffset(); 
-  }
-  result = m_datalayer->openMemory(mem, m_DatalayerPath); 
-}*/
-
 bool RTApplication::openMemory_V2(std::shared_ptr<comm::datalayer::IMemoryUser> &mem, std::map<std::string,uint32_t>* mem_Map,
   uint32_t* m_Rev, std::string &m_DatalayerPath){
 if(m_client){
@@ -429,13 +387,15 @@ if(m_client){
   else
     LOG_WARNING("Client was not created!");
 }
-
+*/
+/*
 void RTApplication::closeMemory(std::shared_ptr<comm::datalayer::IMemoryUser>* mem){
   if(*mem){
     m_datalayer->closeMemory(*mem); 
     *mem = nullptr; 
   }
-}
+    
+}*/
 
 void RTApplication::destroyClient()
 {

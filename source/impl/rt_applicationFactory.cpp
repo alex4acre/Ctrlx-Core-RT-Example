@@ -5,11 +5,13 @@
 namespace Example{
 std::shared_ptr<common::scheduler::ICallable> RTApplicationFactory::createCallable(const comm::datalayer::Variant& param){
     m_application->setDatalayer(m_dataLayer); 
+    m_application->finalStateMachineStart();
     return m_application;
 }
 
 common::scheduler::SchedStatus RTApplicationFactory::destroyCallable(const std::shared_ptr<common::scheduler::ICallable>& callable){
     m_application->resetDataLayer(); 
+    m_application->finalStateMachineStop();
     return common::scheduler::SchedStatus::SCHED_S_OK;
 }
 
